@@ -1,13 +1,15 @@
 import { AppBar, Avatar, Box, Chip, Toolbar, Typography, Button } from "@mui/material";
 import { useAuth } from "../context/AuthContext";
 import { ROLE_LABELS, getSchoolById, schoolIdsForUser } from "../data/dummyData";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { MENU } from "../menu";
 
 const drawerWidth = 230;
 
 export default function TopBar() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const schoolIds = schoolIdsForUser(currentUser);
   const scopeLabel =
     currentUser?.role === "SUPER_ADMIN"
@@ -17,6 +19,7 @@ export default function TopBar() {
       : schoolIds[0]
       ? getSchoolById(schoolIds[0])?.name
       : "";
+  const pageTitle = MENU.find((item) => item.path === location.pathname)?.text ?? scopeLabel;
 
   return (
     <AppBar
@@ -33,7 +36,7 @@ export default function TopBar() {
       <Toolbar sx={{ minHeight: "60px !important", justifyContent: "space-between" }}>
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            {scopeLabel}
+            {pageTitle}
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>

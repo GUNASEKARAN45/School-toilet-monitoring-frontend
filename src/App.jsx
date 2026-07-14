@@ -8,7 +8,8 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import SchoolsPage from "./pages/SchoolsPage";
 import ToiletBlocksPage from "./pages/ToiletBlocksPage";
-import CleaningSchedulePage from "./pages/CleaningSchedulePage";
+import InventoryPage from "./pages/InventoryPage";
+import CompletedSchedulesPage from "./pages/CompletedSchedulesPage";
 import StaffPage from "./pages/StaffPage";
 import { ROLES } from "./data/dummyData";
 
@@ -31,7 +32,8 @@ function App() {
               />
               <Route path="/schools" element={<RoleRoute allowed={[ROLES.SUPER_ADMIN]}><SchoolsPage /></RoleRoute>} />
               <Route path="/toilet-blocks" element={<RoleRoute allowed={[ROLES.SUPER_ADMIN, ROLES.SCHOOL_ADMIN, ROLES.SUPERVISOR]}><ToiletBlocksPage /></RoleRoute>} />
-              <Route path="/cleaning-schedule" element={<RoleRoute allowed={[ROLES.SUPER_ADMIN, ROLES.SCHOOL_ADMIN, ROLES.SUPERVISOR, ROLES.CLEANER]}><CleaningSchedulePage /></RoleRoute>} />
+              <Route path="/inventory" element={<RoleRoute allowed={[ROLES.SUPER_ADMIN, ROLES.SCHOOL_ADMIN, ROLES.SUPERVISOR, ROLES.CLEANER]}><InventoryPage /></RoleRoute>} />
+              <Route path="/completed-schedules" element={<RoleRoute allowed={[ROLES.SUPER_ADMIN, ROLES.SCHOOL_ADMIN, ROLES.SUPERVISOR]}><CompletedSchedulesPage /></RoleRoute>} />
               <Route path="/staff" element={<RoleRoute allowed={[ROLES.SUPER_ADMIN, ROLES.SCHOOL_ADMIN]}><StaffPage /></RoleRoute>} />
             </Route>
           </Routes>
@@ -41,10 +43,10 @@ function App() {
   );
 }
 
-// Cleaners land straight on their task list instead of the KPI dashboard.
+// Cleaners land straight on Inventory instead of the KPI dashboard.
 function DashboardRedirect() {
   const { currentUser } = useAuth();
-  if (currentUser?.role === ROLES.CLEANER) return <Navigate to="/cleaning-schedule" replace />;
+  if (currentUser?.role === ROLES.CLEANER) return <Navigate to="/inventory" replace />;
   return <DashboardPage />;
 }
 

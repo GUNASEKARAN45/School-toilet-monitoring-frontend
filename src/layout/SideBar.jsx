@@ -1,7 +1,7 @@
 import { Box, Divider, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
 import { Link, useLocation } from "react-router-dom";
 import {
-  Dashboard, School, Wc, CleaningServices, ReportProblem, Groups, FiberManualRecord,
+  Dashboard, School, Wc, ReportProblem, Groups, FiberManualRecord, PhotoLibrary, Inventory2,
 } from "@mui/icons-material";
 import { MENU } from "../menu";
 import { useAuth } from "../context/AuthContext";
@@ -13,9 +13,10 @@ const iconMap = {
   Dashboard: <Dashboard />,
   School: <School />,
   Wc: <Wc />,
-  CleaningServices: <CleaningServices />,
   ReportProblem: <ReportProblem />,
   Groups: <Groups />,
+  PhotoLibrary: <PhotoLibrary />,
+  Inventory2: <Inventory2 />,
 };
 
 export default function SideBar() {
@@ -81,7 +82,7 @@ export default function SideBar() {
                 </ListItemIcon>
                 <ListItemText
                   primary={route.text}
-                  slotProps={{ primary: { fontSize: "0.82rem", fontWeight: isSelected ? 600 : 500 } }}
+                  slotProps={{ primary: { sx: { fontSize: "0.74rem", fontWeight: isSelected ? 600 : 500 } } }}
                 />
               </ListItemButton>
             </ListItem>

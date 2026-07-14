@@ -222,6 +222,34 @@ export const districtsInScope = (schoolIds) => {
   return DISTRICTS.filter((d) => scoped.some((s) => s.district === d));
 };
 
+// Facility inventory per toilet block — what's physically installed, updated by school staff
+// on the ground. Seeded deterministically off block.id so every block starts with plausible,
+// varied numbers instead of everything looking identical.
+export const toiletInventory = toiletBlocks.map((block) => {
+  const westernSeats = 2 + (block.id % 3);
+  const indianSeats = Math.max(1, block.seats - westernSeats - 1);
+  const urinals = block.gender === "BOYS" ? 3 + (block.id % 3) : 0;
+  const buckets = westernSeats + indianSeats + (block.id % 2);
+  const taps = Math.ceil((westernSeats + indianSeats + urinals) / 2) + 1;
+  const rampAccess = block.id % 3 !== 0;
+  const sanitaryVendingMachine = block.gender === "GIRLS" ? block.id % 4 !== 0 : null;
+  return {
+    id: block.id,
+    toiletBlockId: block.id,
+    westernSeats,
+    indianSeats,
+    urinals,
+    buckets,
+    taps,
+    rampAccess,
+    sanitaryVendingMachine,
+    updatedAt: recentDays[recentDays.length - 1 - (block.id % 10)],
+    updatedByUserId: block.assignedCleanerId,
+  };
+});
+
+export const getInventoryForBlock = (blockId) => toiletInventory.find((i) => i.toiletBlockId === blockId);
+
 function pct(logs) {
   const due = logs.filter((l) => l.status !== "PENDING");
   return due.length ? Math.round((due.filter((l) => l.status === "DONE").length / due.length) * 100) : null;
