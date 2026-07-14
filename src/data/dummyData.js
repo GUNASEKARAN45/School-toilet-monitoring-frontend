@@ -222,6 +222,42 @@ export const districtsInScope = (schoolIds) => {
   return DISTRICTS.filter((d) => scoped.some((s) => s.district === d));
 };
 
+// Real-looking login credentials for the demo: one Overall Viewer account, plus one
+// district-scoped Supervisor account per district (same password for all).
+export const LOGIN_PASSWORD = "Test@123";
+
+export const LOGIN_CREDENTIALS = (() => {
+  const map = {};
+  const superAdmin = users.find((u) => u.role === ROLES.SUPER_ADMIN);
+  if (superAdmin) map["tnedu@gmail.com"] = superAdmin.id;
+
+  users
+    .filter((u) => u.role === ROLES.SUPERVISOR)
+    .forEach((supervisor) => {
+      const district = getSchoolById(supervisor.coversSchoolIds?.[0])?.district;
+      if (district) map[`${district.toLowerCase()}@gmail.com`] = supervisor.id;
+    });
+
+  return map;
+})();
+
+// A meaningful org-level name for each login account, shown in the topbar greeting instead of
+// the underlying dummy user's personal name (e.g. "TN Education" rather than "Ananya Rao").
+export const WELCOME_NAMES = (() => {
+  const map = {};
+  const superAdmin = users.find((u) => u.role === ROLES.SUPER_ADMIN);
+  if (superAdmin) map[superAdmin.id] = "TN Education";
+
+  users
+    .filter((u) => u.role === ROLES.SUPERVISOR)
+    .forEach((supervisor) => {
+      const district = getSchoolById(supervisor.coversSchoolIds?.[0])?.district;
+      if (district) map[supervisor.id] = `${district} District`;
+    });
+
+  return map;
+})();
+
 // Facility inventory per toilet block — what's physically installed, updated by school staff
 // on the ground. Seeded deterministically off block.id so every block starts with plausible,
 // varied numbers instead of everything looking identical.

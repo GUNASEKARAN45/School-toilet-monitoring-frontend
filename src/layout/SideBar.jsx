@@ -1,10 +1,11 @@
-import { Box, Divider, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
+import { Avatar, Box, Divider, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography } from "@mui/material";
 import { Link, useLocation } from "react-router-dom";
 import {
   Dashboard, School, Wc, ReportProblem, Groups, FiberManualRecord, PhotoLibrary, Inventory2,
 } from "@mui/icons-material";
 import { MENU } from "../menu";
 import { useAuth } from "../context/AuthContext";
+import { ROLE_LABELS } from "../data/dummyData";
 import { brand } from "../theme";
 
 const drawerWidth = 230;
@@ -34,6 +35,8 @@ export default function SideBar() {
           boxSizing: "border-box",
           backgroundColor: brand.sidebar,
           borderRight: "none",
+          display: "flex",
+          flexDirection: "column",
         },
       }}
       variant="permanent"
@@ -53,7 +56,7 @@ export default function SideBar() {
 
       <Divider sx={{ bgcolor: "rgba(255,255,255,0.1)", mx: 2, mb: 1.5 }} />
 
-      <List sx={{ px: 1 }}>
+      <List sx={{ px: 1, flexGrow: 1 }}>
         {items.map((route) => {
           const isSelected = route.path === location.pathname;
           return (
@@ -89,6 +92,22 @@ export default function SideBar() {
           );
         })}
       </List>
+
+      <Divider sx={{ bgcolor: "rgba(255,255,255,0.1)", mx: 2, mb: 1.5 }} />
+
+      <Box sx={{ p: 2, pt: 0.5, display: "flex", alignItems: "center", gap: 1.25 }}>
+        <Avatar sx={{ width: 32, height: 32, fontSize: 13, bgcolor: brand.main }}>
+          {currentUser?.name?.[0] || "?"}
+        </Avatar>
+        <Box sx={{ lineHeight: 1.1, minWidth: 0 }}>
+          <Typography variant="body2" noWrap sx={{ color: "#fff", fontWeight: 600, fontSize: "0.8rem" }}>
+            {currentUser?.name}
+          </Typography>
+          <Typography variant="caption" noWrap sx={{ color: "rgba(255,255,255,0.5)", display: "block" }}>
+            {ROLE_LABELS[currentUser?.role]}
+          </Typography>
+        </Box>
+      </Box>
     </Drawer>
   );
 }

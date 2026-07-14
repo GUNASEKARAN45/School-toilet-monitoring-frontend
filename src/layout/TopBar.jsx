@@ -1,8 +1,9 @@
-import { AppBar, Avatar, Box, Chip, Toolbar, Typography, Button } from "@mui/material";
+import { AppBar, Box, Toolbar, Typography, Button } from "@mui/material";
 import { useAuth } from "../context/AuthContext";
-import { ROLE_LABELS, getSchoolById, schoolIdsForUser } from "../data/dummyData";
+import { getSchoolById, schoolIdsForUser, WELCOME_NAMES } from "../data/dummyData";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MENU } from "../menu";
+import { brand } from "../theme";
 
 const drawerWidth = 230;
 
@@ -20,6 +21,7 @@ export default function TopBar() {
       ? getSchoolById(schoolIds[0])?.name
       : "";
   const pageTitle = MENU.find((item) => item.path === location.pathname)?.text ?? scopeLabel;
+  const welcomeName = WELCOME_NAMES[currentUser?.id] ?? currentUser?.name;
 
   return (
     <AppBar
@@ -39,16 +41,18 @@ export default function TopBar() {
             {pageTitle}
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Avatar sx={{ width: 30, height: 30, fontSize: 13, bgcolor: "#3CC179" }}>
-            {currentUser?.name?.[0] || "?"}
-          </Avatar>
-          <Box sx={{ lineHeight: 1.1 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{currentUser?.name}</Typography>
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>{ROLE_LABELS[currentUser?.role]}</Typography>
-          </Box>
-          <Button size="small" onClick={() => { logout(); navigate("/login"); }}>
-            Switch role
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Welcome, {welcomeName}
+          </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            disableElevation
+            onClick={() => { logout(); navigate("/login"); }}
+            sx={{ bgcolor: brand.critical, color: "#fff", "&:hover": { bgcolor: "#b23030" } }}
+          >
+            Logout
           </Button>
         </Box>
       </Toolbar>
