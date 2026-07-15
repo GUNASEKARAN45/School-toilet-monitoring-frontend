@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Box, Card, Grid, Typography, MenuItem, Select, FormControl, InputLabel, Stack, TextField, IconButton, Divider } from "@mui/material";
-import { ChevronLeft, ChevronRight } from "@mui/icons-material";
+import { Box, Card, Grid, Typography, MenuItem, Select, FormControl, InputLabel, Stack, TextField, IconButton } from "@mui/material";
+import { ChevronLeft, ChevronRight, School, Groups, Wc, TrendingUp } from "@mui/icons-material";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -48,6 +48,31 @@ function PieSliceLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent, na
       <tspan x={x} dy="-0.3em" fontSize={16} fontWeight={700} fill={color}>{Math.round(percent * 100)}%</tspan>
       <tspan x={x} dy="1.3em" fontSize={11} fill={color}>{name}</tspan>
     </text>
+  );
+}
+
+function PieLegend({ data, total }) {
+  return (
+    <Stack direction="row" sx={{ flexWrap: "wrap", justifyContent: "center", gap: 1, mt: 0.5 }}>
+      {data.map((d) => {
+        const pct = total === 0 ? 0 : Math.round((d.value / total) * 100);
+        const color = SHIFT_COLORS[d.name] || SHIFT_COLORS.Pending;
+        return (
+          <Stack
+            key={d.name}
+            direction="row"
+            spacing={0.75}
+            sx={{ alignItems: "center", bgcolor: "#F9FAFB", border: "1px solid #EAECF0", borderRadius: 5, px: 1.1, py: 0.5 }}
+          >
+            <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: color, flex: "none" }} />
+            <Typography variant="caption" sx={{ fontWeight: 700, color: "text.primary" }}>{d.name}</Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {d.value} · {pct}%
+            </Typography>
+          </Stack>
+        );
+      })}
+    </Stack>
   );
 }
 
@@ -142,15 +167,20 @@ function overallOf(shifts) {
   return { total, completed, pctValue: total === 0 ? null : Math.round((completed / total) * 100) };
 }
 
-function GenderCompletionColumn({ label, shifts }) {
+function GenderCompletionColumn({ label, shifts, icon, tint, tintBorder, accent }) {
   const overall = overallOf(shifts);
   return (
-    <Box sx={{ flex: 1, minWidth: 0 }}>
+    <Box sx={{ flex: 1, minWidth: 0, bgcolor: tint, border: `1px solid ${tintBorder}`, borderRadius: 3, p: 2 }}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 2 }}>
         <CircularStat pctValue={overall.pctValue} size={60} thickness={6} />
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>{label}</Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+            <Box sx={{ width: 26, height: 26, borderRadius: "7px", flex: "none", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: `${accent}22`, color: accent }}>
+              {icon}
+            </Box>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>{label}</Typography>
+          </Stack>
+          <Typography variant="caption" sx={{ color: "text.secondary", pl: "34px" }}>
             {overall.total === 0 ? "Not due yet" : `${overall.completed} of ${overall.total} completed`}
           </Typography>
         </Box>
@@ -401,13 +431,15 @@ export default function DashboardPage() {
       <Box sx={{ mb: 1.5 }}>
         <StatBar
           stats={[
-            { label: "Schools", value: scopedSchools.length, sub: `${scopedDistricts.length} district(s)` },
-            { label: "Workers", value: workers, sub: "cleaning staff" },
-            { label: "Toilet blocks", value: toilets.total, sub: `${toilets.boys} boys / ${toilets.girls} girls` },
+            { label: "Schools", value: scopedSchools.length, sub: `${scopedDistricts.length} district(s)`, icon: <School fontSize="small" />, accent: brand.chartTop },
+            { label: "Workers", value: workers, sub: "cleaning staff", icon: <Groups fontSize="small" />, accent: "#8b5cf6" },
+            { label: "Toilet blocks", value: toilets.total, sub: `${toilets.boys} boys / ${toilets.girls} girls`, icon: <Wc fontSize="small" />, accent: brand.warning },
             {
               label: `Compliance — ${DATE_RANGES[rangeKey]}`,
               value: `${complianceValue}%`,
               valueColor: complianceValue >= 90 ? brand.good : complianceValue >= 75 ? brand.warning : brand.critical,
+              icon: <TrendingUp fontSize="small" />,
+              accent: complianceValue >= 90 ? brand.good : complianceValue >= 75 ? brand.warning : brand.critical,
               sub:
                 rangeKey === "TODAY" && shiftData[2].boys === null && shiftData[2].girls === null
                   ? "Evening not yet due"
@@ -418,15 +450,49 @@ export default function DashboardPage() {
         />
       </Box>
 
-      <Card variant="outlined" sx={{ p: 2.25, borderRadius: 2, borderColor: "#E5E7EB", mb: 1.5 }}>
-        <Typography variant="body2" fontWeight={700} sx={{ mb: 2 }}>Today's Maintenance Completion</Typography>
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={{ xs: 2.5, md: 3 }}
-          divider={<Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />}
-        >
-          <GenderCompletionColumn label="Boys blocks" shifts={todayGenderSummary.boys} />
-          <GenderCompletionColumn label="Girls blocks" shifts={todayGenderSummary.girls} />
+      <Card
+        variant="outlined"
+        sx={{
+          p: 2.25,
+          borderRadius: 3,
+          background: "linear-gradient(180deg, #F4FBF7 0%, #FFFFFF 60%)",
+          mb: 1.5,
+        }}
+      >
+        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+          <Typography variant="body2" fontWeight={700}>Today's Maintenance Completion</Typography>
+          <Box
+            sx={{
+              fontSize: "0.65rem",
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              color: brand.mainDark,
+              bgcolor: `${brand.main}1F`,
+              px: 1,
+              py: 0.4,
+              borderRadius: 5,
+            }}
+          >
+            LIVE · TODAY
+          </Box>
+        </Stack>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 2, md: 2.5 }}>
+          <GenderCompletionColumn
+            label="Boys blocks"
+            shifts={todayGenderSummary.boys}
+            icon={<Wc fontSize="small" />}
+            tint={brand.boysTint}
+            tintBorder={brand.boysTintBorder}
+            accent={brand.boys}
+          />
+          <GenderCompletionColumn
+            label="Girls blocks"
+            shifts={todayGenderSummary.girls}
+            icon={<Wc fontSize="small" />}
+            tint={brand.girlsTint}
+            tintBorder={brand.girlsTintBorder}
+            accent={brand.girls}
+          />
         </Stack>
       </Card>
 
@@ -447,26 +513,29 @@ export default function DashboardPage() {
                   {g.gender === "BOYS" ? "Boys blocks" : "Girls blocks"} — {DATE_RANGES[rangeKey]} · Total: {total}
                 </Typography>
                 {hasBlocks ? (
-                  <ResponsiveContainer width="100%" height={340}>
-                    <PieChart>
-                      <Pie
-                        data={data}
-                        dataKey="value"
-                        nameKey="name"
-                        outerRadius={130}
-                        paddingAngle={0}
-                        stroke="#fff"
-                        strokeWidth={2}
-                        label={PieSliceLabel}
-                        labelLine={false}
-                      >
-                        {data.map((d) => (
-                          <Cell key={d.name} fill={SHIFT_COLORS[d.name] || SHIFT_COLORS.Pending} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={data}
+                          dataKey="value"
+                          nameKey="name"
+                          outerRadius={120}
+                          paddingAngle={0}
+                          stroke="#fff"
+                          strokeWidth={2}
+                          label={PieSliceLabel}
+                          labelLine={false}
+                        >
+                          {data.map((d) => (
+                            <Cell key={d.name} fill={SHIFT_COLORS[d.name] || SHIFT_COLORS.Pending} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <PieLegend data={data} total={total} />
+                  </>
                 ) : (
                   <Box sx={{ height: 340, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Typography variant="caption" color="text.secondary">

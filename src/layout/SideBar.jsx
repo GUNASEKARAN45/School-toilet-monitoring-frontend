@@ -33,8 +33,9 @@ export default function SideBar() {
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
-          backgroundColor: brand.sidebar,
+          background: `linear-gradient(180deg, ${brand.sidebar} 0%, ${brand.sidebarDark} 100%)`,
           borderRight: "none",
+          boxShadow: "2px 0 10px rgba(0,0,0,0.12)",
           display: "flex",
           flexDirection: "column",
         },
@@ -43,7 +44,7 @@ export default function SideBar() {
       anchor="left"
     >
       <Box sx={{ p: 2.5, display: "flex", alignItems: "center", gap: 1 }}>
-        <Box sx={{ width: 34, height: 34, borderRadius: "8px", background: brand.main, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+        <Box sx={{ width: 34, height: 34, borderRadius: "9px", background: `linear-gradient(135deg, ${brand.main}, ${brand.mainDark})`, boxShadow: `0 2px 8px ${brand.main}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
           🏫
         </Box>
         <Box sx={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>

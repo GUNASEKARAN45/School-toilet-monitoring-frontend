@@ -1,11 +1,38 @@
-import { Card, Typography, Box, Stack, Divider } from "@mui/material";
+import { Card, Typography, Box, Stack } from "@mui/material";
 
 export default function StatBar({ stats }) {
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2, borderColor: "#E5E7EB" }}>
-      <Stack direction="row" divider={<Divider orientation="vertical" flexItem />} sx={{ flexWrap: "wrap" }}>
-        {stats.map((stat) => (
-          <Box key={stat.label} sx={{ flex: "1 1 140px", py: 1.25, px: 2 }}>
+    <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+      {stats.map((stat) => (
+        <Card
+          key={stat.label}
+          variant="outlined"
+          sx={{
+            flex: "1 1 200px",
+            p: 1.75,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 1.5,
+          }}
+        >
+          {stat.icon && (
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: "10px",
+                flex: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: `${stat.accent || "#3CC179"}1A`,
+                color: stat.accent || "#3CC179",
+              }}
+            >
+              {stat.icon}
+            </Box>
+          )}
+          <Box sx={{ minWidth: 0 }}>
             <Typography
               variant="caption"
               sx={{ display: "block", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, color: "text.secondary", fontSize: "0.65rem" }}
@@ -21,8 +48,8 @@ export default function StatBar({ stats }) {
               </Typography>
             )}
           </Box>
-        ))}
-      </Stack>
-    </Card>
+        </Card>
+      ))}
+    </Stack>
   );
 }
