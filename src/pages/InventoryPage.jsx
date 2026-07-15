@@ -200,7 +200,7 @@ function InventoryDetailDialog({ row, inv, canEdit, onClose, onEdit }) {
     { key: "buckets", label: "Buckets", value: inv.buckets, available: true },
     { key: "taps", label: "Taps", value: inv.taps, available: true },
     { key: "rampAccess", label: "Ramp access", value: <AvailabilityBadge available={inv.rampAccess} />, available: true },
-    { key: "sanitaryVendingMachine", label: "Vending machine", value: <AvailabilityBadge available={inv.sanitaryVendingMachine} />, available: isGirls },
+    { key: "sanitaryVendingMachine", label: "Napkin Vending machine", value: <AvailabilityBadge available={inv.sanitaryVendingMachine} />, available: isGirls },
   ].filter((f) => f.available) : [];
 
   if (!row || !inv) return null;

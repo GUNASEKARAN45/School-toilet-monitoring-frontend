@@ -10,7 +10,7 @@ import {
   SHIFTS, schools, toiletBlocks, cleaningLogs, schoolIdsForUser, districtsInScope,
   getSchoolById, earliestDate, todayDate, recentDays, DATE_RANGES, getDatesForRange,
 } from "../data/dummyData";
-import { SHIFT_COLORS } from "../theme";
+import { brand, SHIFT_COLORS } from "../theme";
 
 // Cap how many unique photos a dialog asks the photo-server for — a full-month range on one
 // block can add up to 90 completed shift-slots; the pool is cycled, so it doesn't need to be
@@ -53,7 +53,7 @@ function scheduleCounts(blockId, dates, shiftIdx) {
     SHIFTS.forEach((shift, i) => {
       if (shiftIdx !== -1 && i !== shiftIdx) return;
       const log = cleaningLogs.find((l) => l.toiletBlockId === blockId && l.shiftId === shift.id && l.date === date);
-      if (log && log.status !== "PENDING") {
+      if (log) {
         scheduled += 1;
         if (log.status === "DONE") completed += 1;
       }
@@ -198,7 +198,12 @@ export default function CompletedSchedulesPage() {
                   <TableCell>{row.school.name}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{row.block.blockName}</TableCell>
                   <TableCell align="center">{row.scheduled}</TableCell>
-                  <TableCell align="center">{row.completed}</TableCell>
+                  <TableCell
+                    align="center"
+                    sx={row.completed < row.scheduled ? { color: brand.critical, fontWeight: 700 } : undefined}
+                  >
+                    {row.completed}
+                  </TableCell>
                   <TableCell align="center">
                     <Button size="small" onClick={() => setDialogBlockId(row.block.id)}>View</Button>
                   </TableCell>
@@ -229,26 +234,26 @@ export default function CompletedSchedulesPage() {
 }
 
 function ScheduleDetailDialog({ row, dates, shiftIdx, onClose, onPreview }) {
-  // Which (date, shift) slots actually have a completed photo set, most recent date first.
+  // Every (date, shift) slot in range, most recent date first — including MISSED/PENDING ones,
+  // which get a status badge instead of photos.
   const dateGroups = useMemo(() => {
     if (!row) return [];
     const groups = [];
     [...dates].sort((a, b) => b.localeCompare(a)).forEach((date) => {
-      const doneShifts = SHIFTS.filter((shift, i) => {
-        if (shiftIdx !== -1 && i !== shiftIdx) return false;
+      const shiftsForDate = SHIFTS.filter((shift, i) => shiftIdx === -1 || i === shiftIdx).map((shift) => {
         const log = cleaningLogs.find((l) => l.toiletBlockId === row.block.id && l.shiftId === shift.id && l.date === date);
-        return log?.status === "DONE";
+        return { ...shift, status: log?.status ?? "PENDING" };
       });
-      if (doneShifts.length) groups.push({ date, shifts: doneShifts });
+      if (shiftsForDate.length) groups.push({ date, shifts: shiftsForDate });
     });
     return groups;
   }, [row, dates, shiftIdx]);
 
-  const totalSlots = dateGroups.reduce((sum, g) => sum + g.shifts.length, 0);
-  const poolSize = Math.min(totalSlots * 4, PHOTO_POOL_CAP);
+  const doneSlotCount = dateGroups.reduce((sum, g) => sum + g.shifts.filter((s) => s.status === "DONE").length, 0);
+  const poolSize = Math.min(doneSlotCount * 4, PHOTO_POOL_CAP);
   const photoState = usePhotoPool(poolSize, row?.block.id);
 
-  // Hand each (date, shift) slot 2 "before" + 2 "after" photos, cycling through the pool.
+  // Hand each completed (date, shift) slot 2 "before" + 2 "after" photos, cycling through the pool.
   const photoAssignments = useMemo(() => {
     if (photoState.status !== "ready" || !photoState.photos.length) return {};
     const pool = photoState.photos;
@@ -256,6 +261,7 @@ function ScheduleDetailDialog({ row, dates, shiftIdx, onClose, onPreview }) {
     let idx = 0;
     dateGroups.forEach((g) => {
       g.shifts.forEach((shift) => {
+        if (shift.status !== "DONE") return;
         map[`${g.date}-${shift.id}`] = {
           before: [pool[idx % pool.length], pool[(idx + 1) % pool.length]],
           after: [pool[(idx + 2) % pool.length], pool[(idx + 3) % pool.length]],
@@ -307,6 +313,7 @@ function ScheduleDetailDialog({ row, dates, shiftIdx, onClose, onPreview }) {
               {dateGroups.map((g) =>
                 g.shifts.map((shift, i) => {
                   const pair = photoAssignments[`${g.date}-${shift.id}`];
+                  const isDone = shift.status === "DONE";
                   return (
                     <TableRow key={`${g.date}-${shift.id}`} hover>
                       <TableCell sx={{ whiteSpace: "nowrap" }}>
@@ -320,22 +327,30 @@ function ScheduleDetailDialog({ row, dates, shiftIdx, onClose, onPreview }) {
                           <Typography variant="caption" fontWeight={600}>{shift.label}</Typography>
                         </Stack>
                       </TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={1}>
-                          {(pair?.before ?? [null, null]).map((photo, j) => (
-                            <PhotoThumb key={`b${j}`} photo={photo} label="Before" size={44}
-                              onClick={() => photo && onPreview({ ...photo, caption: `${row.block.blockName} — ${shift.label} — ${g.date} — Before ${j + 1}` })} />
-                          ))}
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={1}>
-                          {(pair?.after ?? [null, null]).map((photo, j) => (
-                            <PhotoThumb key={`a${j}`} photo={photo} label="After" size={44}
-                              onClick={() => photo && onPreview({ ...photo, caption: `${row.block.blockName} — ${shift.label} — ${g.date} — After ${j + 1}` })} />
-                          ))}
-                        </Stack>
-                      </TableCell>
+                      {isDone ? (
+                        <>
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              {(pair?.before ?? [null, null]).map((photo, j) => (
+                                <PhotoThumb key={`b${j}`} photo={photo} label="Before" size={44}
+                                  onClick={() => photo && onPreview({ ...photo, caption: `${row.block.blockName} — ${shift.label} — ${g.date} — Before ${j + 1}` })} />
+                              ))}
+                            </Stack>
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              {(pair?.after ?? [null, null]).map((photo, j) => (
+                                <PhotoThumb key={`a${j}`} photo={photo} label="After" size={44}
+                                  onClick={() => photo && onPreview({ ...photo, caption: `${row.block.blockName} — ${shift.label} — ${g.date} — After ${j + 1}` })} />
+                              ))}
+                            </Stack>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <TableCell colSpan={2}>
+                          <StatusBadge status={shift.status} />
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })
@@ -345,6 +360,28 @@ function ScheduleDetailDialog({ row, dates, shiftIdx, onClose, onPreview }) {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function StatusBadge({ status }) {
+  const isMissed = status === "MISSED";
+  const color = isMissed ? brand.critical : brand.muted;
+  return (
+    <Box
+      sx={{
+        display: "inline-block",
+        fontSize: "0.7rem",
+        fontWeight: 700,
+        color,
+        bgcolor: `${color}1A`,
+        border: `1px solid ${color}44`,
+        borderRadius: 5,
+        px: 1,
+        py: 0.3,
+      }}
+    >
+      {isMissed ? "Missed" : "Pending"}
+    </Box>
   );
 }
 
