@@ -55,7 +55,6 @@ function PieLegend({ data, total }) {
   return (
     <Stack direction="row" sx={{ flexWrap: "wrap", justifyContent: "center", gap: 1, mt: 0.5 }}>
       {data.map((d) => {
-        const pct = total === 0 ? 0 : Math.round((d.value / total) * 100);
         const color = SHIFT_COLORS[d.name] || SHIFT_COLORS.Pending;
         return (
           <Stack
@@ -67,7 +66,7 @@ function PieLegend({ data, total }) {
             <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: color, flex: "none" }} />
             <Typography variant="caption" sx={{ fontWeight: 700, color: "text.primary" }}>{d.name}</Typography>
             <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              {d.value} · {pct}%
+              {d.value} / {total}
             </Typography>
           </Stack>
         );
@@ -460,7 +459,7 @@ export default function DashboardPage() {
         }}
       >
         <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-          <Typography variant="body2" fontWeight={700}>Today's Maintenance Completion</Typography>
+          <Typography variant="subtitle1" fontWeight={800}>Today's Maintenance Completion</Typography>
           <Box
             sx={{
               fontSize: "0.65rem",
@@ -509,7 +508,7 @@ export default function DashboardPage() {
           return (
             <Grid key={g.gender} size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: "#E5E7EB", height: "100%" }}>
-                <Typography variant="body2" fontWeight={700} sx={{ fontSize: "0.82rem" }}>
+                <Typography variant="body1" fontWeight={800} sx={{ fontSize: "0.95rem" }}>
                   {g.gender === "BOYS" ? "Boys blocks" : "Girls blocks"} — {DATE_RANGES[rangeKey]} · Total: {total}
                 </Typography>
                 {hasBlocks ? (
