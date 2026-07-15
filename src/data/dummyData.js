@@ -355,19 +355,29 @@ export function overallCompliance(schoolIds, dates) {
   return complianceDetail(blockIds, dates).compliance;
 }
 
-// Per-gender shift breakdown: how many logs completed morning/afternoon/evening,
-// and how many are incomplete (missed, or — for today only — not yet due).
+// Per-gender shift breakdown: how many logs completed morning/afternoon/evening (plus each
+// shift's own scheduled total, i.e. due logs — DONE or MISSED, excluding not-yet-due PENDING),
+// and how many are incomplete overall (missed, or — for today only — not yet due).
 export function genderShiftStatus(schoolIds, dates) {
   const blockIds = toiletBlocks.filter((b) => schoolIds.includes(b.schoolId)).map((b) => b.id);
   return ["BOYS", "GIRLS"].map((gender) => {
     const gBlockIds = toiletBlocks.filter((b) => blockIds.includes(b.id) && b.gender === gender).map((b) => b.id);
     const logs = cleaningLogs.filter((l) => dates.includes(l.date) && gBlockIds.includes(l.toiletBlockId));
-    const doneInShift = (shiftId) => logs.filter((l) => l.shiftId === shiftId && l.status === "DONE").length;
+    const shiftStats = (shiftId) => {
+      const due = logs.filter((l) => l.shiftId === shiftId && l.status !== "PENDING");
+      return { completed: due.filter((l) => l.status === "DONE").length, scheduled: due.length };
+    };
+    const morning = shiftStats(1);
+    const afternoon = shiftStats(2);
+    const evening = shiftStats(3);
     return {
       gender,
-      Morning: doneInShift(1),
-      Afternoon: doneInShift(2),
-      Evening: doneInShift(3),
+      Morning: morning.completed,
+      Afternoon: afternoon.completed,
+      Evening: evening.completed,
+      MorningTotal: morning.scheduled,
+      AfternoonTotal: afternoon.scheduled,
+      EveningTotal: evening.scheduled,
       Incomplete: logs.filter((l) => l.status !== "DONE").length,
     };
   });

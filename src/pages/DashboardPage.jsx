@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Card, Grid, Typography, MenuItem, Select, FormControl, InputLabel, Stack, TextField, IconButton } from "@mui/material";
-import { ChevronLeft, ChevronRight, School, Groups, Wc, TrendingUp } from "@mui/icons-material";
+import { ChevronLeft, ChevronRight, School, Groups, Wc, TrendingUp, LocationOn } from "@mui/icons-material";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -51,7 +51,7 @@ function PieSliceLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent, na
   );
 }
 
-function PieLegend({ data, total }) {
+function PieLegend({ data }) {
   return (
     <Stack direction="row" sx={{ flexWrap: "wrap", justifyContent: "center", gap: 1, mt: 0.5 }}>
       {data.map((d) => {
@@ -66,7 +66,7 @@ function PieLegend({ data, total }) {
             <Box sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: color, flex: "none" }} />
             <Typography variant="caption" sx={{ fontWeight: 700, color: "text.primary" }}>{d.name}</Typography>
             <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              {d.value} / {total}
+              {d.scheduled != null ? `${d.value}/${d.scheduled}` : d.value}
             </Typography>
           </Stack>
         );
@@ -206,6 +206,12 @@ function RankingTooltip({ active, payload }) {
   );
 }
 
+const LEVEL_META = {
+  district: { icon: <LocationOn fontSize="small" />, color: "#7c3aed" },
+  school: { icon: <School fontSize="small" />, color: "#0891b2" },
+  toilet: { icon: <Wc fontSize="small" />, color: brand.warning },
+};
+
 export default function DashboardPage() {
   const { currentUser } = useAuth();
   const baseSchoolIds = schoolIdsForUser(currentUser);
@@ -314,11 +320,33 @@ export default function DashboardPage() {
     );
   };
 
-  const renderRankingSection = (title, unitLabel, sectionTopList, sectionPoorList, sectionTopPaged, sectionPoorPaged, setSectionTopPage, setSectionPoorPage) => {
+  const renderRankingSection = (level, title, unitLabel, sectionTopList, sectionPoorList, sectionTopPaged, sectionPoorPaged, setSectionTopPage, setSectionPoorPage) => {
     if (sectionTopList.length === 0 && sectionPoorList.length === 0) return null;
+    const meta = LEVEL_META[level];
     return (
-      <Box sx={{ mb: 1.5 }}>
-        <Typography variant="body2" fontWeight={700} sx={{ mb: 1, fontSize: "0.82rem" }}>{title}</Typography>
+      <Box sx={{ mb: 2.5 }}>
+        <Stack
+          direction="row"
+          spacing={1.25}
+          sx={{ alignItems: "center", mb: 1.5, pb: 1, borderBottom: `2px solid ${meta.color}33` }}
+        >
+          <Box
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: "8px",
+              flex: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              bgcolor: `${meta.color}1A`,
+              color: meta.color,
+            }}
+          >
+            {meta.icon}
+          </Box>
+          <Typography variant="subtitle2" fontWeight={800}>{title}</Typography>
+        </Stack>
         {sectionTopList.length > 0 && (
           <Card variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: "#E5E7EB", mb: 1.5 }}>
             <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}>
@@ -498,9 +526,9 @@ export default function DashboardPage() {
       <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
         {genderPies.map((g) => {
           const data = [
-            { name: "Morning", value: g.Morning },
-            { name: "Afternoon", value: g.Afternoon },
-            { name: "Evening", value: g.Evening },
+            { name: "Morning", value: g.Morning, scheduled: g.MorningTotal },
+            { name: "Afternoon", value: g.Afternoon, scheduled: g.AfternoonTotal },
+            { name: "Evening", value: g.Evening, scheduled: g.EveningTotal },
             { name: incompleteLabel, value: g.Incomplete },
           ];
           const hasBlocks = data.some((d) => d.value > 0);
@@ -533,7 +561,7 @@ export default function DashboardPage() {
                         <Tooltip />
                       </PieChart>
                     </ResponsiveContainer>
-                    <PieLegend data={data} total={total} />
+                    <PieLegend data={data} />
                   </>
                 ) : (
                   <Box sx={{ height: 340, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -548,10 +576,10 @@ export default function DashboardPage() {
         })}
       </Grid>
 
-      {n > 0 && renderRankingSection(ranking.title, ranking.unitLabel, topList, poorList, topPaged, poorPaged, setTopPage, setPoorPage)}
+      {n > 0 && renderRankingSection(ranking.level, ranking.title, ranking.unitLabel, topList, poorList, topPaged, poorPaged, setTopPage, setPoorPage)}
 
       {ranking.level === "district" &&
-        renderRankingSection("School performance", "Schools", schoolTopList, schoolPoorList, schoolTopPaged, schoolPoorPaged, setSchoolTopPage, setSchoolPoorPage)}
+        renderRankingSection("school", "School performance", "Schools", schoolTopList, schoolPoorList, schoolTopPaged, schoolPoorPaged, setSchoolTopPage, setSchoolPoorPage)}
     </Box>
   );
 }
