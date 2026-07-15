@@ -1,19 +1,19 @@
-import { useMemo, useState } from "react";
-import { Box, Card, Grid, Typography, MenuItem, Select, FormControl, InputLabel, Stack, TextField } from "@mui/material";
-import { School, Groups, Wc, TrendingUp } from "@mui/icons-material";
+import { useEffect, useMemo, useState } from "react";
+import { Box, Card, Grid, Typography, MenuItem, Select, FormControl, InputLabel, Stack, TextField, IconButton, Divider } from "@mui/material";
+import { ChevronLeft, ChevronRight } from "@mui/icons-material";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LabelList,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
 } from "recharts";
 import { useAuth } from "../context/AuthContext";
 import {
   schools, schoolIdsForUser, districtsInScope,
-  complianceByShift, overallCompliance, genderShiftStatus,
+  complianceByShift, overallCompliance, genderShiftStatus, todayShiftSummaryByGender,
   rankSchools, rankDistricts, rankToiletBlocks, totalWorkers, toiletTotals,
   DATE_RANGES, getDatesForRange, earliestDate, todayDate, recentDays,
 } from "../data/dummyData";
 import { brand, SHIFT_COLORS } from "../theme";
-import StatTile from "../components/StatTile";
+import StatBar from "../components/StatBar";
 
 function truncateLabel(str, n = 14) {
   return str.length > n ? `${str.slice(0, n - 1)}…` : str;
@@ -27,13 +27,140 @@ function AxisTick({ x, y, payload }) {
   );
 }
 
-function BarValueLabel({ x, y, width, value }) {
-  // A 0% bar has no rendered height, so without this the value is invisible until hovered —
-  // always draw the number just above the bar's top (which is the baseline itself when value is 0).
+function textColorFor(bgHex) {
+  const c = bgHex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#1f2937" : "#ffffff";
+}
+
+function PieSliceLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, fill }) {
+  if (!percent) return null;
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.62;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  const color = textColorFor(fill);
   return (
-    <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="#52514e">
-      {value}%
+    <text x={x} y={y} textAnchor="middle" dominantBaseline="central">
+      <tspan x={x} dy="-0.3em" fontSize={16} fontWeight={700} fill={color}>{Math.round(percent * 100)}%</tspan>
+      <tspan x={x} dy="1.3em" fontSize={11} fill={color}>{name}</tspan>
     </text>
+  );
+}
+
+function PageControls({ page, totalPages, onPrev, onNext }) {
+  return (
+    <Stack direction="row" spacing={0.25} sx={{ alignItems: "center", flex: "none" }}>
+      <IconButton size="small" onClick={onPrev} disabled={page === 0}>
+        <ChevronLeft fontSize="small" />
+      </IconButton>
+      <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, minWidth: 36, textAlign: "center" }}>
+        {page + 1} / {totalPages}
+      </Typography>
+      <IconButton size="small" onClick={onNext} disabled={page === totalPages - 1}>
+        <ChevronRight fontSize="small" />
+      </IconButton>
+    </Stack>
+  );
+}
+
+function severityColor(pctValue) {
+  if (pctValue >= 90) return brand.good;
+  if (pctValue >= 75) return brand.warning;
+  return brand.critical;
+}
+
+// Small ring drawn with a conic-gradient — no charting library needed for a stat this size.
+function CircularStat({ pctValue, size = 60, thickness = 6, color }) {
+  const notDueYet = pctValue === null;
+  const ringColor = color || (notDueYet ? brand.muted : severityColor(pctValue));
+
+  return (
+    <Box
+      sx={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        flex: "none",
+        background: notDueYet ? "#EEF0F2" : `conic-gradient(${ringColor} ${pctValue * 3.6}deg, #EEF0F2 0deg)`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Box
+        sx={{
+          width: size - thickness,
+          height: size - thickness,
+          borderRadius: "50%",
+          bgcolor: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Typography sx={{ fontWeight: 700, fontSize: size >= 56 ? "0.95rem" : "0.62rem", color: notDueYet ? "text.disabled" : "text.primary" }}>
+          {notDueYet ? "—" : `${pctValue}%`}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function shiftPct(shift) {
+  return shift.total === 0 ? null : Math.round((shift.completed / shift.total) * 100);
+}
+
+function ShiftCompletionRow({ shift }) {
+  const { label, total, completed } = shift;
+  const pctValue = shiftPct(shift);
+  const notDueYet = pctValue === null;
+  const color = notDueYet ? brand.muted : severityColor(pctValue);
+
+  return (
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+      <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: SHIFT_COLORS[label] || SHIFT_COLORS.Pending, flex: "none" }} />
+      <Typography variant="body2" sx={{ fontWeight: 700, width: 76, flex: "none" }}>{label}</Typography>
+      <Box sx={{ flex: 1, height: 8, borderRadius: 4, bgcolor: "#EEF0F2", overflow: "hidden" }}>
+        {!notDueYet && (
+          <Box sx={{ width: `${pctValue}%`, height: "100%", borderRadius: 4, bgcolor: color, transition: "width 0.3s" }} />
+        )}
+      </Box>
+      <Typography variant="caption" sx={{ width: 110, flex: "none", textAlign: "right", color: notDueYet ? "text.disabled" : "text.secondary", fontWeight: 600 }}>
+        {notDueYet ? "Not due yet" : `${completed} of ${total} done`}
+      </Typography>
+    </Stack>
+  );
+}
+
+function overallOf(shifts) {
+  const total = shifts.reduce((sum, s) => sum + s.total, 0);
+  const completed = shifts.reduce((sum, s) => sum + s.completed, 0);
+  return { total, completed, pctValue: total === 0 ? null : Math.round((completed / total) * 100) };
+}
+
+function GenderCompletionColumn({ label, shifts }) {
+  const overall = overallOf(shifts);
+  return (
+    <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 2 }}>
+        <CircularStat pctValue={overall.pctValue} size={60} thickness={6} />
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>{label}</Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            {overall.total === 0 ? "Not due yet" : `${overall.completed} of ${overall.total} completed`}
+          </Typography>
+        </Box>
+      </Stack>
+      <Stack spacing={1.5}>
+        {shifts.map((shift) => (
+          <ShiftCompletionRow key={shift.id} shift={shift} />
+        ))}
+      </Stack>
+    </Box>
   );
 }
 
@@ -80,6 +207,7 @@ export default function DashboardPage() {
   const complianceValue = overallCompliance(scopedSchoolIds, dates);
   const shiftData = complianceByShift(scopedSchoolIds, dates);
   const genderPies = genderShiftStatus(scopedSchoolIds, dates);
+  const todayGenderSummary = todayShiftSummaryByGender(scopedSchoolIds);
 
   const ranking = useMemo(() => {
     if (scopedSchools.length === 1) {
@@ -92,18 +220,51 @@ export default function DashboardPage() {
     return { level: "district", unitLabel: "Districts", title: "District performance", data: rankDistricts(scopedSchoolIds, dates) };
   }, [scopedSchools, scopedDistricts, scopedSchoolIds, dates]);
 
+  // Only relevant when the primary ranking above is showing districts — otherwise (a single
+  // district or single school in scope) the primary chart already covers school-level detail.
+  const schoolRanking = useMemo(() => rankSchools(scopedSchoolIds, dates), [scopedSchoolIds, dates]);
+
   // Poor performing = genuinely below 50% compliance, not just "the bottom half" — so the two
   // charts reflect an actual quality bar rather than an arbitrary split.
   const n = ranking.data.length;
   const topList = ranking.data.filter((d) => d.compliance >= 50);
   const poorList = ranking.data.filter((d) => d.compliance < 50);
+  const schoolTopList = schoolRanking.filter((d) => d.compliance >= 50);
+  const schoolPoorList = schoolRanking.filter((d) => d.compliance < 50);
+
+  const PAGE_SIZE = 10;
+  const [topPage, setTopPage] = useState(0);
+  const [poorPage, setPoorPage] = useState(0);
+  const [schoolTopPage, setSchoolTopPage] = useState(0);
+  const [schoolPoorPage, setSchoolPoorPage] = useState(0);
+  // Filters/date range can shrink any of these lists out from under the current page — snap back
+  // to page 1 rather than showing an empty chart. Keyed off the filter inputs themselves (not
+  // `ranking`, which is a new object on every render) so it doesn't fire on unrelated re-renders.
+  useEffect(() => {
+    setTopPage(0);
+    setPoorPage(0);
+    setSchoolTopPage(0);
+    setSchoolPoorPage(0);
+  }, [districtFilter, schoolFilter, rangeKey, customFrom, customTo]);
+
+  const paginate = (data, page) => {
+    const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+    const clampedPage = Math.min(page, totalPages - 1);
+    const start = clampedPage * PAGE_SIZE;
+    return { pageData: data.slice(start, start + PAGE_SIZE), totalPages, page: clampedPage };
+  };
+
+  const topPaged = paginate(topList, topPage);
+  const poorPaged = paginate(poorList, poorPage);
+  const schoolTopPaged = paginate(schoolTopList, schoolTopPage);
+  const schoolPoorPaged = paginate(schoolPoorList, schoolPoorPage);
 
   const handleDistrictChange = (value) => {
     setDistrictFilter(value);
     setSchoolFilter("ALL");
   };
 
-  const miniBarChart = (data, color) => {
+  const miniBarChart = (data, kind) => {
     // Scale the axis to what this chart actually shows — a "poor" chart maxing out at 30%
     // shouldn't share the same 0-100% scale as the "top" chart and look artificially squashed.
     const maxCompliance = Math.max(...data.map((d) => d.compliance), 0);
@@ -111,18 +272,67 @@ export default function DashboardPage() {
     // Recharts renders nothing at all — no bar, no label — for a value of exactly 0. Give it a
     // hairline sliver to render against while the label/tooltip still read the true compliance.
     const chartData = data.map((d) => ({ ...d, renderValue: d.compliance === 0 ? axisMax * 0.015 : d.compliance }));
+    const color = kind === "top" ? brand.chartTop : brand.critical;
     return (
-      <ResponsiveContainer width="100%" height={190}>
+      <ResponsiveContainer width="100%" height={260}>
         <BarChart data={chartData} margin={{ top: 16, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="#E5E7EB" />
           <XAxis dataKey="name" tick={<AxisTick />} axisLine={{ stroke: "#C3C2B7" }} tickLine={false} interval={0} />
-          <YAxis domain={[0, axisMax]} tick={{ fontSize: 10.5 }} axisLine={false} tickLine={false} unit="%" width={42} />
-          <Tooltip content={<RankingTooltip />} />
-          <Bar dataKey="renderValue" radius={[4, 4, 0, 0]} maxBarSize={46} fill={color}>
-            <LabelList dataKey="compliance" content={<BarValueLabel />} />
-          </Bar>
+          <YAxis domain={[0, axisMax]} tick={{ fontSize: 10.5 }} axisLine={{ stroke: "#C3C2B7" }} tickLine={false} unit="%" width={42} />
+          <Tooltip content={<RankingTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
+          <Bar dataKey="renderValue" radius={[6, 6, 0, 0]} maxBarSize={55} fill={color} />
         </BarChart>
       </ResponsiveContainer>
+    );
+  };
+
+  const renderRankingSection = (title, unitLabel, sectionTopList, sectionPoorList, sectionTopPaged, sectionPoorPaged, setSectionTopPage, setSectionPoorPage) => {
+    if (sectionTopList.length === 0 && sectionPoorList.length === 0) return null;
+    return (
+      <Box sx={{ mb: 1.5 }}>
+        <Typography variant="body2" fontWeight={700} sx={{ mb: 1, fontSize: "0.82rem" }}>{title}</Typography>
+        {sectionTopList.length > 0 && (
+          <Card variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: "#E5E7EB", mb: 1.5 }}>
+            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+              <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: brand.chartTop, flex: "none" }} />
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Top Performing {unitLabel}
+                </Typography>
+              </Stack>
+              {sectionTopPaged.totalPages > 1 && (
+                <PageControls
+                  page={sectionTopPaged.page}
+                  totalPages={sectionTopPaged.totalPages}
+                  onPrev={() => setSectionTopPage((p) => Math.max(0, p - 1))}
+                  onNext={() => setSectionTopPage((p) => Math.min(sectionTopPaged.totalPages - 1, p + 1))}
+                />
+              )}
+            </Stack>
+            {miniBarChart(sectionTopPaged.pageData, "top")}
+          </Card>
+        )}
+        {sectionPoorList.length > 0 && (
+          <Card variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: "#E5E7EB" }}>
+            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+              <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: brand.critical, flex: "none" }} />
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Poor Performing {unitLabel}
+                </Typography>
+              </Stack>
+              {sectionPoorPaged.totalPages > 1 && (
+                <PageControls
+                  page={sectionPoorPaged.page}
+                  totalPages={sectionPoorPaged.totalPages}
+                  onPrev={() => setSectionPoorPage((p) => Math.max(0, p - 1))}
+                  onNext={() => setSectionPoorPage((p) => Math.min(sectionPoorPaged.totalPages - 1, p + 1))}
+                />
+              )}
+            </Stack>
+            {miniBarChart(sectionPoorPaged.pageData, "poor")}
+          </Card>
+        )}
+      </Box>
     );
   };
 
@@ -130,7 +340,6 @@ export default function DashboardPage() {
     <Box>
       <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2, mb: 2 }}>
         <Box>
-          <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>Dashboard</Typography>
         </Box>
 
         <Stack direction="row" spacing={1.5}>
@@ -189,31 +398,37 @@ export default function DashboardPage() {
         </Stack>
       </Stack>
 
-      <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatTile label="Schools" value={scopedSchools.length} sub={`${scopedDistricts.length} district(s)`} accentColor={brand.boys} icon={<School fontSize="small" />} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatTile label="Workers" value={workers} sub="cleaning staff" accentColor="#1baf7a" icon={<Groups fontSize="small" />} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatTile label="Toilet blocks" value={toilets.total} sub={`${toilets.boys} boys / ${toilets.girls} girls`} accentColor="#4a3aa7" icon={<Wc fontSize="small" />} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <StatTile
-            label={`Compliance — ${DATE_RANGES[rangeKey]}`}
-            value={`${complianceValue}%`}
-            sub={
-              rangeKey === "TODAY" && shiftData[2].boys === null && shiftData[2].girls === null
-                ? "Evening not yet due"
-                : complianceValue >= 90 ? "On target" : complianceValue >= 75 ? "Needs attention" : "Critical"
-            }
-            subColor={complianceValue >= 90 ? brand.good : complianceValue >= 75 ? brand.warning : brand.critical}
-            accentColor={complianceValue >= 90 ? brand.good : complianceValue >= 75 ? brand.warning : brand.critical}
-            icon={<TrendingUp fontSize="small" />}
-          />
-        </Grid>
-      </Grid>
+      <Box sx={{ mb: 1.5 }}>
+        <StatBar
+          stats={[
+            { label: "Schools", value: scopedSchools.length, sub: `${scopedDistricts.length} district(s)` },
+            { label: "Workers", value: workers, sub: "cleaning staff" },
+            { label: "Toilet blocks", value: toilets.total, sub: `${toilets.boys} boys / ${toilets.girls} girls` },
+            {
+              label: `Compliance — ${DATE_RANGES[rangeKey]}`,
+              value: `${complianceValue}%`,
+              valueColor: complianceValue >= 90 ? brand.good : complianceValue >= 75 ? brand.warning : brand.critical,
+              sub:
+                rangeKey === "TODAY" && shiftData[2].boys === null && shiftData[2].girls === null
+                  ? "Evening not yet due"
+                  : complianceValue >= 90 ? "On target" : complianceValue >= 75 ? "Needs attention" : "Critical",
+              subColor: complianceValue >= 90 ? brand.good : complianceValue >= 75 ? brand.warning : brand.critical,
+            },
+          ]}
+        />
+      </Box>
+
+      <Card variant="outlined" sx={{ p: 2.25, borderRadius: 2, borderColor: "#E5E7EB", mb: 1.5 }}>
+        <Typography variant="body2" fontWeight={700} sx={{ mb: 2 }}>Today's Maintenance Completion</Typography>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={{ xs: 2.5, md: 3 }}
+          divider={<Divider orientation="vertical" flexItem sx={{ display: { xs: "none", md: "block" } }} />}
+        >
+          <GenderCompletionColumn label="Boys blocks" shifts={todayGenderSummary.boys} />
+          <GenderCompletionColumn label="Girls blocks" shifts={todayGenderSummary.girls} />
+        </Stack>
+      </Card>
 
       <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
         {genderPies.map((g) => {
@@ -227,37 +442,33 @@ export default function DashboardPage() {
           const total = data.reduce((s, d) => s + d.value, 0);
           return (
             <Grid key={g.gender} size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, height: "100%" }}>
+              <Card variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: "#E5E7EB", height: "100%" }}>
                 <Typography variant="body2" fontWeight={700} sx={{ fontSize: "0.82rem" }}>
-                  {g.gender === "BOYS" ? "Boys blocks" : "Girls blocks"} — {DATE_RANGES[rangeKey]}
+                  {g.gender === "BOYS" ? "Boys blocks" : "Girls blocks"} — {DATE_RANGES[rangeKey]} · Total: {total}
                 </Typography>
                 {hasBlocks ? (
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, "& svg:focus, & svg *:focus": { outline: "none" } }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <ResponsiveContainer width="100%" height={210}>
-                        <PieChart>
-                          <Pie data={data} dataKey="value" nameKey="name" outerRadius={78} paddingAngle={1.5} stroke="#fff" strokeWidth={2}>
-                            {data.map((d) => (
-                              <Cell key={d.name} fill={SHIFT_COLORS[d.name] || SHIFT_COLORS.Pending} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                          <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={8} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </Box>
-                    <Stack spacing={0.9} sx={{ flex: "none", pr: 1 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.72rem" }}>Total: {total}</Typography>
-                      {data.map((d) => (
-                        <Stack key={d.name} direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
-                          <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: SHIFT_COLORS[d.name] || SHIFT_COLORS.Pending, flex: "none" }} />
-                          <Typography variant="caption" sx={{ fontSize: "0.72rem", color: "text.secondary" }}>{d.name}: {d.value}</Typography>
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </Box>
+                  <ResponsiveContainer width="100%" height={340}>
+                    <PieChart>
+                      <Pie
+                        data={data}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={130}
+                        paddingAngle={0}
+                        stroke="#fff"
+                        strokeWidth={2}
+                        label={PieSliceLabel}
+                        labelLine={false}
+                      >
+                        {data.map((d) => (
+                          <Cell key={d.name} fill={SHIFT_COLORS[d.name] || SHIFT_COLORS.Pending} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
                 ) : (
-                  <Box sx={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Box sx={{ height: 340, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Typography variant="caption" color="text.secondary">
                       No {g.gender === "BOYS" ? "boys" : "girls"} blocks in this view
                     </Typography>
@@ -269,27 +480,10 @@ export default function DashboardPage() {
         })}
       </Grid>
 
-      {n > 0 && (
-        <Box>
-          <Typography variant="body2" fontWeight={700} sx={{ mb: 1, fontSize: "0.82rem" }}>{ranking.title}</Typography>
-          {topList.length > 0 && (
-            <Card variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, mb: 1.5 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: brand.good }}>
-                Top Performing {ranking.unitLabel}
-              </Typography>
-              {miniBarChart(topList, brand.good)}
-            </Card>
-          )}
-          {poorList.length > 0 && (
-            <Card variant="outlined" sx={{ p: 1.75, borderRadius: 2.5 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: brand.critical }}>
-                Poor Performing {ranking.unitLabel}
-              </Typography>
-              {miniBarChart(poorList, brand.critical)}
-            </Card>
-          )}
-        </Box>
-      )}
+      {n > 0 && renderRankingSection(ranking.title, ranking.unitLabel, topList, poorList, topPaged, poorPaged, setTopPage, setPoorPage)}
+
+      {ranking.level === "district" &&
+        renderRankingSection("School performance", "Schools", schoolTopList, schoolPoorList, schoolTopPaged, schoolPoorPaged, setSchoolTopPage, setSchoolPoorPage)}
     </Box>
   );
 }

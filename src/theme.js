@@ -11,6 +11,7 @@ export const brand = {
   warning: "#c98500",
   critical: "#d03b3b",
   muted: "#898781",
+  chartTop: "#1976d2",
 };
 
 export const SHIFT_COLORS = {

@@ -18,10 +18,12 @@ export const SHIFTS = [
   { id: 3, name: "EVENING", label: "Evening", start: "14:30", end: "17:30" },
 ];
 
-// Tamil Nadu districts only — 10 districts. Chennai has 12 schools; the rest have 2 each.
+// Tamil Nadu districts only — 20 districts. Chennai has 12 schools; the rest have 2 each.
 export const DISTRICTS = [
   "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem",
   "Tirunelveli", "Erode", "Vellore", "Thanjavur", "Tiruppur",
+  "Kanyakumari", "Thoothukudi", "Dindigul", "Karur", "Namakkal",
+  "Nagapattinam", "Cuddalore", "Villupuram", "Krishnagiri", "Sivaganga",
 ];
 
 // [districtIndex, name, type, address]
@@ -56,6 +58,26 @@ const SCHOOL_SEED = [
   [8, "Poompuhar Matriculation Higher Secondary School", "GIRLS_ONLY", "Thanjavur"],
   [9, "Angel Matriculation Higher Secondary School", "CO_ED", "Tiruppur"],
   [9, "Sona Matriculation Higher Secondary School", "GIRLS_ONLY", "Tiruppur"],
+  [10, "Holy Family Convent Higher Secondary School", "GIRLS_ONLY", "Nagercoil"],
+  [10, "CSI Matriculation Higher Secondary School", "CO_ED", "Nagercoil"],
+  [11, "St. Antony's Higher Secondary School", "BOYS_ONLY", "Thoothukudi"],
+  [11, "V.O.C. Matriculation Higher Secondary School", "CO_ED", "Thoothukudi"],
+  [12, "St. Joseph's Matriculation Higher Secondary School", "CO_ED", "Dindigul"],
+  [12, "Devangar Higher Secondary School", "BOYS_ONLY", "Dindigul"],
+  [13, "Government Girls Higher Secondary School", "GIRLS_ONLY", "Karur"],
+  [13, "St. Michael's Matriculation Higher Secondary School", "CO_ED", "Karur"],
+  [14, "Bishop Heber Matriculation Higher Secondary School", "CO_ED", "Namakkal"],
+  [14, "Jayam Matriculation Higher Secondary School", "GIRLS_ONLY", "Namakkal"],
+  [15, "Little Flower Matriculation Higher Secondary School", "CO_ED", "Nagapattinam"],
+  [15, "Government Boys Higher Secondary School", "BOYS_ONLY", "Nagapattinam"],
+  [16, "St. Joseph's Convent Higher Secondary School", "GIRLS_ONLY", "Cuddalore"],
+  [16, "Annai Matriculation Higher Secondary School", "CO_ED", "Cuddalore"],
+  [17, "Sri Vidya Bharathi Matriculation Higher Secondary School", "CO_ED", "Villupuram"],
+  [17, "St. Mary's Convent Higher Secondary School", "GIRLS_ONLY", "Villupuram"],
+  [18, "St. Paul's Matriculation Higher Secondary School", "CO_ED", "Krishnagiri"],
+  [18, "Adhiyaman Boys Higher Secondary School", "BOYS_ONLY", "Krishnagiri"],
+  [19, "Alagappa Matriculation Higher Secondary School", "CO_ED", "Sivaganga"],
+  [19, "Mahatma Gandhi Girls Higher Secondary School", "GIRLS_ONLY", "Sivaganga"],
 ];
 
 export const schools = SCHOOL_SEED.map(([districtIdx, name, type, address], i) => ({
@@ -86,6 +108,8 @@ const CLEANER_NAMES = [
 const SUPERVISOR_NAMES = [
   "Ravi Kumar", "Meena Iyer", "Kiran Rao", "Farah Sheikh", "Ibrahim Khan",
   "Deepak Nair", "Anitha Krishnan", "Vikram Sundar", "Lakshmi Narayan", "Suresh Pillai",
+  "Jayalakshmi R", "Mohammed Ali", "Saravanan T", "Nandhini K", "Rajesh Kannan",
+  "Bhavani Shankar", "Yogeswari M", "Prakash Raj", "Indira Gopal", "Senthil Kumar",
 ];
 
 export const users = [
@@ -300,6 +324,22 @@ export function complianceByShift(schoolIds, dates) {
       toiletBlocks.find((b) => b.id === l.toiletBlockId)?.gender === "GIRLS");
     return { shift: shift.label, boys: pct(boysLogs), girls: pct(girlsLogs) };
   });
+}
+
+// Today's per-shift progress split boys/girls (independent of whatever date-range the dashboard
+// filter is set to) — total = due shifts so far today, completed = of those, how many are DONE.
+export function todayShiftSummaryByGender(schoolIds) {
+  const blocksByGender = {
+    BOYS: toiletBlocks.filter((b) => schoolIds.includes(b.schoolId) && b.gender === "BOYS").map((b) => b.id),
+    GIRLS: toiletBlocks.filter((b) => schoolIds.includes(b.schoolId) && b.gender === "GIRLS").map((b) => b.id),
+  };
+  const summaryFor = (blockIds) =>
+    SHIFTS.map((shift) => {
+      const logs = cleaningLogs.filter((l) => l.date === todayDate && l.shiftId === shift.id && blockIds.includes(l.toiletBlockId));
+      const due = logs.filter((l) => l.status !== "PENDING");
+      return { id: shift.id, label: shift.label, total: due.length, completed: due.filter((l) => l.status === "DONE").length };
+    });
+  return { boys: summaryFor(blocksByGender.BOYS), girls: summaryFor(blocksByGender.GIRLS) };
 }
 
 // scheduled = due shifts (excludes not-yet-due PENDING today); completed = of those, how many DONE.

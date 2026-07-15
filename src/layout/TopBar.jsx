@@ -32,7 +32,6 @@ export default function TopBar() {
         ml: `${drawerWidth}px`,
         backgroundColor: "#fff",
         color: "#111827",
-        borderBottom: "1px solid #E5E7EB",
       }}
     >
       <Toolbar sx={{ minHeight: "60px !important", justifyContent: "space-between" }}>
